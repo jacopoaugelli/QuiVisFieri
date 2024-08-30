@@ -13,4 +13,7 @@ Delphi 11 - Embarcadero Community
 # QuiVisFieri | .NET + PowerShell
 
 Usage:
-    .\quivisfieri.ps1
+```PowerShell
+. .\quivisfieri.ps1
+Invoke-QuiVisFieri -ProcessName $target
+```
